@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Material Detection and Quality Analysis</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>
+                <i class="fas fa-chart-line"></i>
+                <span>RDC QUALITY CHECK</span>
+                <small>QUALITY ANALYSIS SYSTEM</small>
+            </h1>
+        </div>
+        <img src="/static/logo.jpg" alt="RDC Logo" class="logo">
+    </div>
+
+    <div class="form-container">
+        <h2><i class="fas fa-upload"></i> Upload Weighslip</h2>
+        
+        <form method="post" class="upload-form">
+            <div class="plant-select">
+                <label for="auth_token">
+                    <i class="fas fa-key"></i>
+                    Authorization Token:
+                </label>
+                <input type="text" id="auth_token" name="auth_token" required 
+                       placeholder="Enter Authorization Token">
+            </div>
+            <div class="plant-select">
+                <label for="plant_code">
+                    <i class="fas fa-industry"></i>
+                    Plant Code:
+                </label>
+                <input type="text" id="plant_code" name="plant_code" required 
+                       placeholder="Enter Plant Code (e.g., DE1)">
+            </div>
+            <div class="plant-select">
+                <label for="month">
+                    <i class="fas fa-calendar"></i>
+                    Month:
+                </label>
+                <select id="month" name="month" required>
+                    <option value="" disabled selected>Select Month</option>
+                    <option value="Jan">January</option>
+                    <option value="Feb">February</option>
+                    <option value="Mar">March</option>
+                    <option value="Apr">April</option>
+                    <option value="May">May</option>
+                    <option value="Jun">June</option>
+                    <option value="Jul">July</option>
+                    <option value="Aug">August</option>
+                    <option value="Sep">September</option>
+                    <option value="Oct">October</option>
+                    <option value="Nov">November</option>
+                    <option value="Dec">December</option>
+                </select>
+            </div>
+            <div class="plant-select">
+                <label for="year">
+                    <i class="fas fa-calendar-alt"></i>
+                    Year:
+                </label>
+                <input type="number" id="year" name="year" required 
+                       placeholder="e.g. 2024" min="2000" max="2100">
+            </div>
+            <button type="submit" class="submit-btn">
+                <i class="fas fa-search"></i> Fetch and Extract
+            </button>
+        </form>
+    </div>
+
+    {% if rows %}
+    <div class="analysis-container">
+        <div class="analysis-header">
+            <h3><i class="fas fa-chart-pie"></i> Analysis Results</h3>
+            <div id="pdf-count">
+                <i class="fas fa-file-pdf"></i>
+                Total PDFs: <span>{{ pdf_count }}</span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button onclick="resetAll()" class="reset-btn">
+                <i class="fas fa-redo"></i> Reset All
+            </button>
+            <button onclick="downloadReport()" class="download-btn">
+                <i class="fas fa-download"></i> Download CSV Report
+            </button>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-container">
+                <div class="chart-loader" id="analysisChartLoader">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Loading chart...</span>
+                </div>
+                <canvas id="analysisChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-loader" id="qualityChartLoader">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Loading chart...</span>
+                </div>
+                <canvas id="qualityChart"></canvas>
+            </div>
+        </div>
+
+        <div class="vendor-quality-table">
+            <h3><i class="fas fa-table"></i> Vendor Quality Analysis</h3>
+            <br><h3>Plant Code: {{plant_code}}</h3>
+            <div class="table-container">
+                <table id="vendorTable">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Vendor Name</th>
+                            <th colspan="3">CA10MM</th>
+                            <th colspan="3">CA20MM</th>
+                            <th colspan="3">FARSAND</th>
+                        </tr>
+                        <tr>
+                            <th><i class="fas fa-check text-success"></i> Good</th>
+                            <th><i class="fas fa-minus text-warning"></i> Avg</th>
+                            <th><i class="fas fa-times text-danger"></i> Poor</th>
+                            <th><i class="fas fa-check text-success"></i> Good</th>
+                            <th><i class="fas fa-minus text-warning"></i> Avg</th>
+                            <th><i class="fas fa-times text-danger"></i> Poor</th>
+                            <th><i class="fas fa-check text-success"></i> Good</th>
+                            <th><i class="fas fa-minus text-warning"></i> Avg</th>
+                            <th><i class="fas fa-times text-danger"></i> Poor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Table will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="qualityPercentages" class="quality-stats">
+                <!-- Quality percentages will be displayed here -->
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="no-data">
+        <i class="fas fa-info-circle"></i>
+        <p>No data extracted yet. Please upload PDFs through DMS.</p>
+    </div>
+    {% endif %}
+
+    <style>
+        .charts-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .chart-container {
+            width: 45%;
+            min-width: 300px;
+            height: 400px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #analysisChart, #qualityChart {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 350px;
+        }
+        .vendor-quality-table {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        .vendor-quality-table table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .vendor-quality-table th,
+        .vendor-quality-table td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .vendor-quality-table th {
+            background: #4CAF50;
+            color: white;
+        }
+        .vendor-quality-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .quality-stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+
+    <script>
+        function runDetectionAll() {
+            showLoading('analysisChart');
+            showLoading('qualityChart');
+            const rows = {{ rows|tojson }};
+            let ca10mmCount = 0, ca20mmCount = 0, farsandCount = 0, notClearCount = 0;
+            let ca10mmCorrect = 0, ca20mmCorrect = 0, farsandCorrect = 0;
+            let completed = 0, totalImages = 0;
+
+            let materialTotals = { CA10MM: 0, CA20MM: 0, FARSAND: 0 };
+            let qualityStats = {
+                'CA10MM': {Good: 0, Avg: 0, Poor: 0},
+                'CA20MM': {Good: 0, Avg: 0, Poor: 0},
+                'FARSAND': {Good: 0, Avg: 0, Poor: 0}
+            };
+            let vendorStats = {};
+            let totalValidImages = 0;
+
+            const ctx = document.getElementById('analysisChart').getContext('2d');
+            let analysisChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: [
+                        'CA10MM (Correct)', 'CA10MM (Incorrect)',
+                        'CA20MM (Correct)', 'CA20MM (Incorrect)',
+                        'FARSAND (Correct)', 'FARSAND (Incorrect)',
+                        'Not Clear Image'
+                    ],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: ['#4CAF50', '#FF9800', '#2196F3', '#FF5252', '#9C27B0', '#FFEB3B', '#607D8B'],
+                        borderWidth: 1,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { padding: 20, font: { size: 12 } }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Material Detection Analysis',
+                            font: { size: 16, weight: 'bold' },
+                            padding: 20
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${percentage}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            rows.forEach((entry) => {
+                const r = entry.row;
+                const itemName = (r[3] || '').toUpperCase();
+                const vendorName = r[6] || 'Unknown Vendor';
+                const images = entry.images || [];
+
+                if (!vendorStats[vendorName]) {
+                    vendorStats[vendorName] = {
+                        CA10MM: { Good: 0, Avg: 0, Poor: 0 },
+                        CA20MM: { Good: 0, Avg: 0, Poor: 0 },
+                        FARSAND: { Good: 0, Avg: 0, Poor: 0 }
+                    };
+                }
+
+                totalImages += images.length;
+
+                images.forEach((imgB64, idx) => {
+                    let base64String = imgB64.split(',')[1] || imgB64;
+
+                    fetch('/detect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'image=' + encodeURIComponent(base64String) + '&pdf_file=' + encodeURIComponent(r[1])
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        const label = data.labels[0] || 'Not Clear';
+
+                        entry.predictions ??= [];
+                        entry.quality_predictions ??= [];
+                        entry.predictions.push(data.raw_predictions[0]);
+                        entry.quality_predictions.push(data.quality_prediction);
+
+                        if (label === 'Not Clear') {
+                            notClearCount++;
+                        } else {
+                            totalValidImages++;
+                            if (label === 'CA10MM') {
+                                ca10mmCount++;
+                                if (label === itemName) ca10mmCorrect++;
+                            } else if (label === 'CA20MM') {
+                                ca20mmCount++;
+                                if (label === itemName) ca20mmCorrect++;
+                            } else if (label === 'FARSAND') {
+                                farsandCount++;
+                                if (label === itemName) farsandCorrect++;
+                            }
+                        }
+
+                        completed++;
+                        if (completed === totalImages) {
+                            // Recompute qualityStats and vendorStats after detection
+                            qualityStats = {
+                                'CA10MM': {Good: 0, Avg: 0, Poor: 0},
+                                'CA20MM': {Good: 0, Avg: 0, Poor: 0},
+                                'FARSAND': {Good: 0, Avg: 0, Poor: 0}
+                            };
+                            vendorStats = {};
+                            materialTotals = { CA10MM: 0, CA20MM: 0, FARSAND: 0 };
+                            totalValidImages = 0;
+
+                            rows.forEach((entry) => {
+                                const r = entry.row;
+                                const itemName = (r[3] || '').toUpperCase();
+                                const vendorName = r[6] || 'Unknown Vendor';
+                                const images = entry.images || [];
+                                const qualities = entry.quality_predictions || [];
+                                const predictions = entry.predictions || [];
+
+                                if (!vendorStats[vendorName]) {
+                                    vendorStats[vendorName] = {
+                                        CA10MM: { Good: 0, Avg: 0, Poor: 0 },
+                                        CA20MM: { Good: 0, Avg: 0, Poor: 0 },
+                                        FARSAND: { Good: 0, Avg: 0, Poor: 0 }
+                                    };
+                                }
+
+                                images.forEach((img, idx) => {
+                                    const pred = predictions[idx] || {};
+                                    const label = pred.label || 'Not Clear';
+                                    const quality = qualities[idx] || '';
+
+                                    if (label === 'Not Clear') return;
+
+                                    materialTotals[itemName] = (materialTotals[itemName] || 0) + 1;
+
+                                    if (itemName in qualityStats) {
+                                        if (quality === 'DE1Good') qualityStats[itemName].Good++;
+                                        else if (quality === 'DE1Avg') qualityStats[itemName].Avg++;
+                                        else if (quality === 'DE1Poor') qualityStats[itemName].Poor++;
+                                    }
+
+                                    if (itemName in vendorStats[vendorName]) {
+                                        if (quality === 'DE1Good') vendorStats[vendorName][itemName].Good++;
+                                        else if (quality === 'DE1Avg') vendorStats[vendorName][itemName].Avg++;
+                                        else if (quality === 'DE1Poor') vendorStats[vendorName][itemName].Poor++;
+                                    }
+                                });
+                            });
+
+                            updateVendorTable(vendorStats);
+                            updateQualityPercentages(qualityStats, rows);
+
+                            analysisChart.data.datasets[0].data = [
+                                ca10mmCorrect,
+                                ca10mmCount - ca10mmCorrect,
+                                ca20mmCorrect,
+                                ca20mmCount - ca20mmCorrect,
+                                farsandCorrect,
+                                farsandCount - farsandCorrect,
+                                notClearCount
+                            ];
+                            analysisChart.update();
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Detection failed:', err);
+                        completed++;
+                        if (completed === totalImages) {
+                            updateVendorTable(vendorStats);
+                            updateQualityPercentages(qualityStats, rows);
+                        }
+                    });
+                });
+            });
+            hideLoading('analysisChart');
+        }
+
+        function downloadReport() {
+            window.location.href = '/generate-csv';
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (document.getElementById('analysisChart')) {
+                runDetectionAll();
+            }
+        });
+
+        function resetAll() {
+            fetch('/reset', { method: 'POST' })
+                .then(() => window.location.reload());
+        }
+
+        function updateVendorTable(vendorStats) {
+            const tbody = document.querySelector('#vendorTable tbody');
+            tbody.innerHTML = '';
+            // Calculate totals for each subcolumn
+            let total = {
+                CA10MM: { Good: 0, Avg: 0, Poor: 0 },
+                CA20MM: { Good: 0, Avg: 0, Poor: 0 },
+                FARSAND: { Good: 0, Avg: 0, Poor: 0 }
+            };
+            Object.entries(vendorStats).forEach(([vendor, stats]) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${vendor}</td>
+                    <td>${stats.CA10MM.Good}</td><td>${stats.CA10MM.Avg}</td><td>${stats.CA10MM.Poor}</td>
+                    <td>${stats.CA20MM.Good}</td><td>${stats.CA20MM.Avg}</td><td>${stats.CA20MM.Poor}</td>
+                    <td>${stats.FARSAND.Good}</td><td>${stats.FARSAND.Avg}</td><td>${stats.FARSAND.Poor}</td>
+                `;
+                tbody.appendChild(row);
+                total.CA10MM.Good += stats.CA10MM.Good;
+                total.CA10MM.Avg += stats.CA10MM.Avg;
+                total.CA10MM.Poor += stats.CA10MM.Poor;
+                total.CA20MM.Good += stats.CA20MM.Good;
+                total.CA20MM.Avg += stats.CA20MM.Avg;
+                total.CA20MM.Poor += stats.CA20MM.Poor;
+                total.FARSAND.Good += stats.FARSAND.Good;
+                total.FARSAND.Avg += stats.FARSAND.Avg;
+                total.FARSAND.Poor += stats.FARSAND.Poor;
+            });
+            // Add total row
+            const totalRow = document.createElement('tr');
+            totalRow.style.fontWeight = 'bold';
+            totalRow.innerHTML = `
+                <td>Total</td>
+                <td>${total.CA10MM.Good}</td><td>${total.CA10MM.Avg}</td><td>${total.CA10MM.Poor}</td>
+                <td>${total.CA20MM.Good}</td><td>${total.CA20MM.Avg}</td><td>${total.CA20MM.Poor}</td>
+                <td>${total.FARSAND.Good}</td><td>${total.FARSAND.Avg}</td><td>${total.FARSAND.Poor}</td>
+            `;
+            tbody.appendChild(totalRow);
+        }
+
+        function updateQualityPercentages(qualityStats, rows) {
+            const statsDiv = document.getElementById('qualityPercentages');
+            let good = qualityStats['CA10MM'].Good + qualityStats['CA20MM'].Good + qualityStats['FARSAND'].Good;
+            let avg = qualityStats['CA10MM'].Avg + qualityStats['CA20MM'].Avg + qualityStats['FARSAND'].Avg;
+            let poor = qualityStats['CA10MM'].Poor + qualityStats['CA20MM'].Poor + qualityStats['FARSAND'].Poor;
+            let total = good + avg + poor;
+            const goodPercent = total ? ((good / total) * 100).toFixed(1) : 0;
+            const avgPercent = total ? ((avg / total) * 100).toFixed(1) : 0;
+            const poorPercent = total ? ((poor / total) * 100).toFixed(1) : 0;
+            statsDiv.innerHTML = `
+                <h4>Overall Quality Distribution</h4>
+                <p>Good Quality: ${goodPercent}% (${good} samples)</p>
+                <p>Average Quality: ${avgPercent}% (${avg} samples)</p>
+                <p>Poor Quality: ${poorPercent}% (${poor} samples)</p>
+                <p><b>Total Valid Images Counted: ${total}</b></p>
+            `;
+            // Calculate total images per material from rows
+            let materialTotals = { CA10MM: 0, CA20MM: 0, FARSAND: 0 };
+            rows.forEach(entry => {
+                const r = entry.row;
+                const itemName = (r[3] || '').toUpperCase();
+                const images = entry.images || [];
+                if (itemName in materialTotals) {
+                    materialTotals[itemName] += images.length;
+                }
+            });
+            // Calculate materialPercentages once
+            let materialPercentages = {};
+            ['CA10MM', 'CA20MM', 'FARSAND'].forEach(item => {
+                let total = materialTotals[item];
+                materialPercentages[item] = {
+                    Good: total ? (qualityStats[item].Good / total * 100) : 0,
+                    Avg: total ? (qualityStats[item].Avg / total * 100) : 0,
+                    Poor: total ? (qualityStats[item].Poor / total * 100) : 0
+                };
+            });
+            // Add material-wise details using materialPercentages
+            let materialDetails = '';
+            ['CA10MM', 'CA20MM', 'FARSAND'].forEach(item => {
+                let goodP = materialPercentages[item].Good.toFixed(1);
+                let avgP = materialPercentages[item].Avg.toFixed(1);
+                let poorP = materialPercentages[item].Poor.toFixed(1);
+                let totalCount = qualityStats[item].Good + qualityStats[item].Avg + qualityStats[item].Poor;
+                materialDetails += `<b>${item} (Total: ${totalCount}):</b> Good: ${goodP}% (${qualityStats[item].Good}), Avg: ${avgP}% (${qualityStats[item].Avg}), Poor: ${poorP}% (${qualityStats[item].Poor})<br>`;
+            });
+            statsDiv.innerHTML += `<div style=\"margin-top:10px\"><h4>Material-wise Quality</h4>${materialDetails}</div>`;
+
+            // Create or update the bar chart
+            const qualityCtx = document.getElementById('qualityChart').getContext('2d');
+            let labels = ['CA10MM', 'CA20MM', 'FARSAND'];
+            if (!window.qualityBarChart) {
+                window.qualityBarChart = new Chart(qualityCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Good',
+                                data: labels.map(item => materialPercentages[item].Good),
+                                backgroundColor: '#4CAF50'
+                            },
+                            {
+                                label: 'Average',
+                                data: labels.map(item => materialPercentages[item].Avg),
+                                backgroundColor: '#FFC107'
+                            },
+                            {
+                                label: 'Poor',
+                                data: labels.map(item => materialPercentages[item].Poor),
+                                backgroundColor: '#F44336'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            title: {
+                                display: true,
+                                text: 'Quality Analysis per Item Name',
+                                font: { size: 16, weight: 'bold' },
+                                padding: 20
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                window.qualityBarChart.data.datasets[0].data = labels.map(item => materialPercentages[item].Good);
+                window.qualityBarChart.data.datasets[1].data = labels.map(item => materialPercentages[item].Avg);
+                window.qualityBarChart.data.datasets[2].data = labels.map(item => materialPercentages[item].Poor);
+                window.qualityBarChart.update();
+            }
+            hideLoading('qualityChart');
+        }
+
+        // Add loading state management
+        function showLoading(chartId) {
+            document.getElementById(chartId + 'Loader').style.display = 'flex';
+        }
+
+        function hideLoading(chartId) {
+            document.getElementById(chartId + 'Loader').style.display = 'none';
+        }
+
+        // Add form submission loading state
+        document.querySelector('form').addEventListener('submit', function() {
+            const submitBtn = this.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        });
+
+        // Add smooth scrolling to analysis results
+        document.querySelector('.submit-btn').addEventListener('click', function(e) {
+            const analysisContainer = document.querySelector('.analysis-container');
+            if (analysisContainer) {
+                e.preventDefault();
+                analysisContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    </script>
+</body>
+</html>

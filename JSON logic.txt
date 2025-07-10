@@ -1,0 +1,46 @@
+{
+
+PLANT_CODE : "MU6",
+"Quality_thresholds" : { {
+Edge_Coverage : "x%",
+Initial_Quality : "Good/Avg/Poor",
+Model_Quality : "Good/Avg/Poor",
+Final_Quality : "Good/Avg/Poor"
+}
+
+"model_bias_adjustment" : {
+"CA10MM" : { 
+"Change By" : +/_ a%
+"Output" : {
+"Good" : Quality +- a%,
+"Avg" : Quality +- a%,
+"Poor" : Quality +-a%
+}
+}
+"CA20MM" : { 
+"Change By" : +/_ b%
+"Output" : {
+"Good" : Quality +- b%,
+"Avg" : Quality +- b%,
+"Poor" : Quality +-b%
+}
+}
+"FARSAND" : { 
+"Change By" : +/_ c%
+"Output" : {
+"Good" : Quality +- c%,
+"Avg" : Quality +- c%,
+"Poor" : Quality +-c%
+}
+}
+"FACSSAND" : { 
+"Change By" : +/_ d%
+"Output" : {
+"Good" : Quality +- d%,
+"Avg" : Quality +- d%,
+"Poor" : Quality +-d%
+}
+}
+}
+}
+"Item_Name" : ["CA10MM","CA20MM","FARSAND","FACSSAND"]
